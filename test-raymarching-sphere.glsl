@@ -1,6 +1,7 @@
 
 #define EPS 0.0001
 #define PI 3.14159265359
+#define FLT_MAX 3.402823466e+38
 
 precision highp float;
 
@@ -12,8 +13,54 @@ float sphere(vec3 p, float size) {
   return length(p) - size;
 }
 
+float sdBox(vec3 p, vec3 b) {
+  vec3 d = abs(p) - b;
+  return length(max(d, 0.)) + min(max(d.x, max(d.y, d.z)), 0.);
+}
+
+float sdCross(in vec3 p, float size) {
+  float da = sdBox(p.xyz, vec3(FLT_MAX, size, size));
+  float db = sdBox(p.yzx, vec3(size, FLT_MAX, size));
+  float dc = sdBox(p.zxy, vec3(size, size, FLT_MAX));
+  return min(da, min(db, dc));
+}
+
+vec3 map(in vec3 p, float size) {
+  float d = sdBox(p, vec3(size));
+  return vec3(d, 0., 0.);
+}
+
+/*
+vec3 intersect(in vec3 ro, in vec3 rd) {
+  for(float t = 0.; t < 10.; ) {
+    vec3 h = map(ro + rd * t);
+    if(h.x < .001)
+      return vec3(t, h.yz);
+    t += h;
+  }
+  return vec3(-1.);
+}
+*/
+
+float subtract(float d1, float d2) {
+  return max(-d1, d2);
+}
+
 float scene(vec3 p) {
-  return sphere(p, .9);
+  // return sdCross(p);
+  // return sdBox(map(p), vec3(.1));
+  // return sdBox(p, vec3(1.5)) - sdCross(p);
+
+  // return subtract(
+  //   sdBox(p, vec3(2.)),
+  //   sdBox(p, vec3(3.))
+  // );
+
+  float c;
+  // c = min(sphere(p, .5), sphere(p - vec3(1.5, 0., 0.), .5));
+  c = subtract(sdCross(p, .2), sdBox(map(p, .5), vec3(.3)));
+  return c;
+  // return c;
 }
 
 vec3 getNormal(vec3 p) {
@@ -66,7 +113,7 @@ void main() {
 
   // camera settings
   vec3 lookAt = vec3(0.);
-  vec3 cameraPos = vec3(vec2(2. * iMouse.xy / iResolution.xy - 1.) * 3., 2.) + vec3(0., 0., 2.);
+  vec3 cameraPos = vec3(vec2(2. * iMouse.xy / iResolution.xy - 1.) * 5., 0.) + vec3(0., 0., 10.);
   float nearClip = 0.;
   float farClip = 80.;
   float fov = 0.5;
