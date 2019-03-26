@@ -6,13 +6,13 @@
 
 #define EPS 0.0001
 #define PI 3.14159265359
-#define AO_TYPE 2 // 0 ~ 2
+#define AO_TYPE 1 // 0 ~ 2
 
 precision mediump float;
 
 const int maxIterations = 64;
 const float stepScale = 1.;
-const float stopThreshold = .005;
+const float stopThreshold = .02;
 
 struct Light {
   vec3 position;
