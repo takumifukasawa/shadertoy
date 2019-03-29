@@ -6,13 +6,12 @@
 
 #define EPS 0.0001
 #define PI 3.14159265359
-#define AO_TYPE 2 // 0 ~ 2
 
 precision mediump float;
 
 const int maxIterations = 64;
 const float stepScale = 1.;
-const float stopThreshold = .0005;
+const float stopThreshold = .005;
 
 struct Light {
   vec3 position;
@@ -70,49 +69,10 @@ vec3 map(vec3 p) {
   return vec3(d, 0., 0.);
 }
 
-float tgladFormula(vec3 p) {
-  p = mod(p, 2.);
-  float mr = .25;
-  float mxr = 1.;
-  vec4 scale = vec4(vec3(-3.12), 3.12);
-  vec4 p0 = vec4(0., 1.59, -1., 0.);
-  vec4 z = vec4(p, 1.);
-  for(int i = 0; i < 3; i++) {
-    z.xyz = clamp(z.xyz, -.94, .94) * 2. - z.xyz;
-    z *= scale / clamp(dot(z.xyz, z.xyz), mr, mxr) * 1.;
-    z.xyz += p;
-  }
-  float d5 = (length(max(abs(z.xyz) - vec3(1.2, 49., 1.4), 0.)) - .06) / z.w;
-  return d5;
-}
-
-float pseudoKleinan(vec3 p) {
-  const vec3 cSize = vec3(.92436, .90756, .92436);
-  const float size = 1.;
-  const vec3 c = vec3(0.);
-  float deFactor = 1.;
-  const vec3 offset = vec3(0.);
-  vec3 ap = p + 1.;
-  for(int i = 0; i < 10; i++) {
-    ap = p;
-    p = 2. * clamp(p, -cSize, cSize) - p;
-    float r2 = dot(p, p);
-    float k = max(size / r2, 1.);
-    p *= k;
-    deFactor *= k;
-    p += c;
-  }
-  float r = abs(.5 * abs(p.z - offset.z) / deFactor);
-  return r;
-}
-
 float scene(vec3 p) {
   // vec3 d = map(p);
   // return d.x;
-
-  //return tgladFormula(p);
-
-  return pseudoKleinan(p);
+  return sphere(p, 2.);
 }
 
 float calcAO(vec3 p, vec3 n) {
@@ -183,7 +143,7 @@ vec3 lighting(vec3 position, vec3 cameraPos) {
   directionalLight.color = vec3(.8, .4, .4);
 
   Light pointLight;
-  pointLight.position = vec3(0., 0., 0.);
+  pointLight.position = vec3(2.5, 2.5, 2.5);
   pointLight.intensity = .8;
   pointLight.color = vec3(.8, .5, .5);
 
@@ -217,25 +177,12 @@ vec3 lighting(vec3 position, vec3 cameraPos) {
 
   vec3 diffuse = dDiffuseColor + pDiffuseColor;
   vec3 specular = dSpecularColor + pSpecularColor;
-  vec3 ambient = ambientColor;
+  vec3 ambient = ambientColor * ao;
 
-  // only ao
-  #if AO_TYPE == 0
-    return vec3(ao);
-  #endif
-  // not use ao
-  #if AO_TYPE == 1
-    return objColor * diffuse + specular + ambient;
-  #endif
-  // use ao
-  #if AO_TYPE == 2
-    return objColor * diffuse + specular + ambient * ao;
-  #endif
-}
-
-vec3 fog(vec3 color, float distance, vec3 fogColor, float b) {
-  float fogAmount = 1. - exp(-distance * b);
-  return mix(color, fogColor, fogAmount);
+  float fresnel = 1. - dot(normalize(cameraPos), normalize(normal));
+    
+  vec3 color = objColor * diffuse + specular + ambient * ao;
+  return mix(color, vec3(1.), fresnel);
 }
 
 void mainImage(out vec4 fragColor, in vec2 fragCoord) {
@@ -243,16 +190,15 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
   vec2 screenCoord = (2. * fragCoord.xy / iResolution.xy - 1.) * aspect;
 
   // camera settings
-  vec3 lookAt = vec3(0., 0., 1. + sin(iTime / 1.5) / 4.);
-  // vec3 cameraPos = vec3(iMouse.x * 3., iMouse.y * 3., 1.);
-  vec3 cameraPos = vec3(cos(iTime / 3.) * 1., sin(iTime / 3.) * 1.,  1.);
+  vec3 lookAt = vec3(0., 0., 0.);
+  vec3 cameraPos = vec3(0., 0., 3.5);
   float fov = .9;
   float nearClip = 0.;
   float farClip = 80.;
 
   // camera vectors
   vec3 forward = normalize(lookAt - cameraPos);
-  vec3 right = normalize(cross(forward, vec3(0., 0., 1.)));
+  vec3 right = normalize(cross(forward, vec3(0., 1., 0.)));
   vec3 up = normalize(cross(right, forward));
 
   // raymarch
@@ -271,7 +217,7 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord) {
 
   vec3 sceneColor = lighting(position, cameraPos);
 
-  sceneColor = fog(sceneColor, dist, vec3(0.), .04);
+  // sceneColor = fog(sceneColor, dist, vec3(0.), .04);
 
   fragColor = vec4(sceneColor, 1.);
 }
